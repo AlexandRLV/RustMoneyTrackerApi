@@ -1,78 +1,81 @@
-use axum::{async_trait, RequestPartsExt};
+use crate::ctx::Ctx;
+use crate::model::ModelManager;
+use crate::web::AUTH_TOKEN;
+use crate::web::{Error, Result};
+use async_trait::async_trait;
 use axum::extract::{FromRequestParts, State};
+use axum::http::request::Parts;
 use axum::http::Request;
 use axum::middleware::Next;
 use axum::response::Response;
-use lazy_regex::regex_captures;
+use serde::Serialize;
 use tower_cookies::{Cookie, Cookies};
 
-use crate::ctx::Context;
-use crate::model::ModelController;
-use crate::web::AUTH_TOKEN;
-use crate::{Error, Result};
-
-pub async fn mw_require_auth<B>(
-    context: Result<Context>,
-    req: Request<B>,
-    next: Next<B>
+#[allow(dead_code)] // For now, until we have the rpc.
+pub async fn mw_ctx_require<B>(
+	ctx: Result<Ctx>,
+	req: Request<B>,
+	next: Next<B>,
 ) -> Result<Response> {
-    println!("--> {:<12} - require_auth", "MIDDLEWARE");
-    context?;
-    Ok(next.run(req).await)
+	println!("->> {:<12} - mw_ctx_require - {ctx:?}", "MIDDLEWARE");
+
+	ctx?;
+
+	Ok(next.run(req).await)
 }
 
-pub async fn mw_context_resolver<B>(
-    _mc: State<ModelController>,
-    cookies: Cookies,
-    mut req: Request<B>,
-    next: Next<B>
+pub async fn mw_ctx_resolve<B>(
+	_mm: State<ModelManager>,
+	cookies: Cookies,
+	mut req: Request<B>,
+	next: Next<B>,
 ) -> Result<Response> {
-    println!("--> {:<12} - context_resolver", "MIDDLEWARE");
+	println!("->> {:<12} - mw_ctx_resolve", "MIDDLEWARE");
 
-    let auth_token = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
+	let auth_token = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
 
-    let result_context = match auth_token
-    .ok_or(Error::AuthFailNoAuthTokenCookie)
-    .and_then(parse_token)
-    {
-        Ok((user_id, _exp, _sign)) => {
-            // TODO: token validation
-            Ok(Context::new(user_id))
-        },
-        Err(e) => Err(e)
-    };
+	// FIXME - Compute real CtxAuthResult<Ctx>.
+	let result_ctx =
+		Ctx::new(100).map_err(|ex| CtxExtError::CtxCreateFail(ex.to_string()));
 
-    if result_context.is_err() && !matches!(result_context, Err(Error::AuthFailNoAuthTokenCookie)) {
-        cookies.remove(Cookie::named(AUTH_TOKEN))
-    }
+	// Remove the cookie if something went wrong other than NoAuthTokenCookie.
+	if result_ctx.is_err()
+		&& !matches!(result_ctx, Err(CtxExtError::TokenNotInCookie))
+	{
+		cookies.remove(Cookie::named(AUTH_TOKEN))
+	}
 
-    req.extensions_mut().insert(result_context);
+	// Store the ctx_result in the request extension.
+	req.extensions_mut().insert(result_ctx);
 
-    Ok(next.run(req).await)
+	Ok(next.run(req).await)
 }
 
+// region:    --- Ctx Extractor
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for Context {
-    type Rejection = Error;
+impl<S: Send + Sync> FromRequestParts<S> for Ctx {
+	type Rejection = Error;
 
-    async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self> {
-        println!("--> {:<12} - context", "EXTRACTOR");
+	async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
+		println!("->> {:<12} - Ctx", "EXTRACTOR");
 
-        parts
-            .extensions
-            .get::<Result<Context>>()
-            .ok_or(Error::AuthFailContextNotInRequestExt)?
-            .clone()
-    }
+		parts
+			.extensions
+			.get::<CtxExtResult>()
+			.ok_or(Error::CtxExt(CtxExtError::CtxNotInRequestExt))?
+			.clone()
+			.map_err(Error::CtxExt)
+	}
 }
+// endregion: --- Ctx Extractor
 
-fn parse_token(token: String) -> Result<(u64, String, String)> {
-    let (_whole, user_id, exp, sign) = regex_captures!(
-        r#"^user-(\d+)\.(.+)\.(.+)"#,
-        &token
-    )
-    .ok_or(Error::AuthFailTokenWrongFormat)?;
-    
-    let user_id: u64 = user_id.parse().map_err(|_| Error::AuthFailTokenWrongFormat)?;
-    Ok((user_id, exp.to_string(), sign.to_string()))
+// region:    --- Ctx Extractor Result/Error
+type CtxExtResult = core::result::Result<Ctx, CtxExtError>;
+
+#[derive(Clone, Serialize, Debug)]
+pub enum CtxExtError {
+	TokenNotInCookie,
+	CtxNotInRequestExt,
+	CtxCreateFail(String),
 }
+// endregion: --- Ctx Extractor Result/Error
