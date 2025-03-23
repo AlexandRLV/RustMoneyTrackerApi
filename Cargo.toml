@@ -15,6 +15,9 @@ tokio-postgres = "0.7.13"
 axum = {version = "0.6.20", features = ["headers"]}
 tower-http = { version = "0.4", features = ["fs"] }
 tower-cookies = "0.9.0"
+# -- Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"]}
 # -- Utils
 lazy-regex = "2"
 async-trait = "0.1"
