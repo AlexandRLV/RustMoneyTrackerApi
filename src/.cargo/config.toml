@@ -1,2 +1,5 @@
 [env]
 RUST_LOG = "rust_money_tracker_api=debug"
+
+## -- Config
+SERVICE_WEB_FOLDER = "web-folder/"
