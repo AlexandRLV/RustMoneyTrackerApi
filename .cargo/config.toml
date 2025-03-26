@@ -1,5 +1,8 @@
 [env]
 RUST_LOG = "rust_money_tracker_api=debug"
+RUST_BACKTRACE = "1"
+
+SERVICE_DB_URL = "postgres://app_user:dev_only_pwd@localhost/app_db"
 
 ## -- Config
 SERVICE_WEB_FOLDER = "web-folder/"

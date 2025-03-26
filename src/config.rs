@@ -3,6 +3,7 @@ use std::{env, sync::OnceLock};
 
 #[allow(non_snake_case)]
 pub struct Config {
+    pub DB_URL: String,
     pub WEB_FOLDER: String,
 }
 
@@ -18,7 +19,10 @@ pub fn config() -> &'static Config {
 
 impl Config {
     fn load_from_env() -> Result<Config> {
-        Ok(Config { WEB_FOLDER: get_env("SERVICE_WEB_FOLDER")? })
+        Ok(Config {
+            DB_URL: get_env("SERVICE_DB_URL")?,
+            WEB_FOLDER: get_env("SERVICE_WEB_FOLDER")?
+        })
     }
 }
 
