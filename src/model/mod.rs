@@ -4,6 +4,12 @@ mod base;
 mod error;
 mod store;
 pub mod task;
+mod currency;
+mod exchange;
+mod savings;
+mod expense;
+mod category;
+mod user;
 
 use store::{new_db_pool, Db};
 

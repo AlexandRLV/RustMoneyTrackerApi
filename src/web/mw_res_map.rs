@@ -8,7 +8,7 @@ use serde_json::json;
 use tracing::debug;
 use uuid::Uuid;
 
-pub async fn mw_reponse_map(
+pub async fn mw_response_map(
 	ctx: Option<Ctx>,
 	uri: Uri,
 	req_method: Method,

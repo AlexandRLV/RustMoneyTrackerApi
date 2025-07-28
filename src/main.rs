@@ -17,7 +17,7 @@ pub use config::config;
 
 use crate::model::ModelManager;
 use crate::web::mw_auth::mw_ctx_resolve;
-use crate::web::mw_res_map::mw_reponse_map;
+use crate::web::mw_res_map::mw_response_map;
 use crate::web::{routes_login, routes_static};
 use axum::{middleware, Router};
 use tracing::info;
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
 	let routes_all = Router::new()
 		.merge(routes_login::routes())
 		// .nest("/api", routes_rpc)
-		.layer(middleware::map_response(mw_reponse_map))
+		.layer(middleware::map_response(mw_response_map))
 		.layer(middleware::from_fn_with_state(mm.clone(), mw_ctx_resolve))
 		.layer(CookieManagerLayer::new())
 		.fallback_service(routes_static::serve_dir());
